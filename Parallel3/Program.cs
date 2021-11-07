@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 
+
 namespace Parallel3
 {
     class Program
@@ -14,18 +15,22 @@ namespace Parallel3
         private static string dirPath = Environment.GetFolderPath(Environment.SpecialFolder.Personal) + @"\Texts";
 
         private static string[] files = Directory.GetFiles(dirPath);
-        private static char[] separators;
         private static int filesCount = 40;
+
+        private static char[] separators;
+
         private static ConcurrentDictionary<string, int> wordsFrequency = new ConcurrentDictionary<string, int>();
-        private static ConcurrentBag<string> globalBuffer = new ConcurrentBag<string>();
+
+        // private static ConcurrentBag<string> globalBuffer = new ConcurrentBag<string>();
+        private static BlockingCollection<string> globalBuffer = new();
         private static int readersCount = 2;
         private static int handlersCount = 4;
         private static Thread[] readers = new Thread[readersCount];
         private static Thread[] handlers = new Thread[handlersCount];
         private static int filesStep = filesCount / readersCount;
-       
-        
-        
+        //private static bool isEmpty= true;
+       // private static bool isReady = false;
+
 
         static void ReadFiles(object threadIndex)
         {
@@ -37,16 +42,36 @@ namespace Parallel3
             {
                 // добавляем необработанную порцию текста в буффер
                 globalBuffer.Add(File.ReadAllText(files[i]));
+              //  isReady = true;
             }
         }
-
+    
         static void HandleTexts()
         {
             string[] localWords;
             string text;
-            // пока в буффере есть элементы
-            while (!globalBuffer.IsEmpty)
+            /*while (isReady)
             {
+                if (isReady)
+                {
+                    if (globalBuffer.TryTake(out text))
+                    {
+                        localWords = text.Split(separators, StringSplitOptions.RemoveEmptyEntries);
+                        for (int i = 0; i < localWords.Length; i++)
+                        {
+                            wordsFrequency.AddOrUpdate(localWords[i].ToLower(), 1, (key, oldValue) => ++oldValue);
+                        }
+                    }
+                    else
+                    {
+                        isReady = false;
+                    }
+                }
+            }*/
+             //пока в буффере есть элементы
+            while (globalBuffer.IsAddingCompleted && !globalBuffer.IsCompleted)
+            {
+              
                 if (globalBuffer.TryTake(out text))
                 {
                     localWords = text.Split(separators, StringSplitOptions.RemoveEmptyEntries);
@@ -56,7 +81,6 @@ namespace Parallel3
                     }
                 }
             }
-           
         }
 
         static void Main(string[] args)
@@ -90,22 +114,25 @@ namespace Parallel3
                 handlers[i] = new Thread(HandleTexts);
             }
 
+            // запускаем читателей
             for (int i = 0; i < readersCount; i++)
             {
                 readers[i].Start(i);
             }
-            // ожидаем завершения чтения их файлов
+
+          
+
+            // ожидаем завершения чтения всех файлов
             for (int i = 0; i < readersCount; i++)
             {
                 readers[i].Join();
             }
-
-          
+            globalBuffer.CompleteAdding();
+            // запускаем обработчиков
             for (int i = 0; i < handlersCount; i++)
             {
                 handlers[i].Start();
             }
-            
             for (int i = 0; i < handlersCount; i++)
             {
                 handlers[i].Join();
@@ -116,10 +143,10 @@ namespace Parallel3
             TimeSpan timeSpan = stopwatch.Elapsed;
 
             Console.WriteLine("Всего слов: " + wordsFrequency.Count);
-             
-            Console.WriteLine("Самое частое слово: " +
+
+            /*Console.WriteLine("Самое частое слово: " +
                               wordsFrequency.First(x => x.Value == wordsFrequency.Values.Max()).Key + " " +
-                              wordsFrequency.Values.Max());
+                              wordsFrequency.Values.Max());*/
             /*foreach (var pair in wordsFrequency.OrderBy(pair => pair.Key))
             {
                 Console.WriteLine("{0} : {1}", pair.Key, pair.Value);
