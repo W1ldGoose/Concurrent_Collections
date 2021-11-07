@@ -4,19 +4,22 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace Serial_alg
 {
     class Program
     {
-        private static string dirPath = Environment.GetFolderPath(Environment.SpecialFolder.Personal) + @"\Texts";
-        private static int filesCount = 40;
+        private static string dirPath = Environment.GetFolderPath(Environment.SpecialFolder.Personal) +
+                                        @"\Chesterton_Books\Chesterton";
+
+        private static int filesCount = 13;
         private static Dictionary<string, int> wordsFrequency = new();
         private static string[] files = Directory.GetFiles(dirPath);
 
         private static char[] separators;
 
-        static string[] ReadFiles()
+        static void ReadFiles()
         {
             StringBuilder textBuilder = new StringBuilder();
             for (int i = 0; i < filesCount; i++)
@@ -26,11 +29,7 @@ namespace Serial_alg
             }
 
             string[] allWords = textBuilder.ToString().Split(separators, StringSplitOptions.RemoveEmptyEntries);
-            return allWords;
-        }
 
-        static void CountWords(string[] allWords)
-        {
             for (int i = 0; i < allWords.Length; i++)
             {
                 string lowerWord = allWords[i].ToLower();
@@ -44,7 +43,6 @@ namespace Serial_alg
                 }
             }
         }
-
 
         static void Main(string[] args)
         {
@@ -63,16 +61,17 @@ namespace Serial_alg
             tmp.Add('\n');
             tmp.Add('\r');
             separators = tmp.ToArray();
-            
+           
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
-            string[] allWords = ReadFiles();
-            CountWords(allWords);
+
+             ReadFiles();
             stopwatch.Stop();
+
             TimeSpan timeSpan = stopwatch.Elapsed;
             Console.WriteLine("Всего слов: " + wordsFrequency.Count);
             Console.WriteLine("Самое частое слово: " + wordsFrequency.First(x => x.Value == wordsFrequency.Values.Max())
-                .Key+" " + wordsFrequency.Values.Max());
+                .Key + " " + wordsFrequency.Values.Max());
             /*foreach (var pair in wordsFrequency.OrderBy(pair => pair.Key))
             {
                 Console.WriteLine("{0} : {1}", pair.Key, pair.Value);

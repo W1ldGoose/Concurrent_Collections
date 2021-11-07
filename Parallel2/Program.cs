@@ -6,13 +6,14 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Parallel2
 {
     class Program
     {
-        private static string dirPath = Environment.GetFolderPath(Environment.SpecialFolder.Personal) + @"\Texts";
-        private static int filesCount = 40;
+        private static string dirPath = Environment.GetFolderPath(Environment.SpecialFolder.Personal) + @"\Chesterton_Books\Chesterton";
+        private static int filesCount = 13;
         
         private static string[] files = Directory.GetFiles(dirPath);
         private static char[] separators;
@@ -21,17 +22,18 @@ namespace Parallel2
         private static int threadsCount = 4;
         private static Thread[] threads = new Thread[threadsCount];
         private static int filesStep = filesCount / threadsCount;
+        private static int lastIndex = filesCount % threadsCount;
         
 
         static void ReadFiles(object threadIndex)
         {
             int index = (int) threadIndex;
             int startIndex = index * filesStep;
-            int finishIndex = (index + 1) * filesStep; //+ (index == threadsCount - 1 ? lastIndex : 0);
+            int finishIndex = (index + 1) * filesStep + (index == threadsCount - 1 ? lastIndex : 0);
 
             StringBuilder textBuilder = new StringBuilder();
 
-            for (int i = startIndex; i < finishIndex && i<filesCount; i++)
+            for (int i = startIndex; i < finishIndex; i++)
             {
                 // закинули все тексты из всех файлов в sb
                 textBuilder.Append(File.ReadAllText(files[i]));
@@ -47,6 +49,7 @@ namespace Parallel2
         
         static void Main(string[] args)
         {
+            
             List<char> tmp = new List<char>();
             for (int ctr = (int) (Char.MinValue);
                 ctr <= (int) (Char.MaxValue);
@@ -80,10 +83,9 @@ namespace Parallel2
                 threads[i].Join();
             }
             
-
             
 
-            stopwatch.Stop();
+          stopwatch.Stop();
             TimeSpan timeSpan = stopwatch.Elapsed;
 
             Console.WriteLine("Всего слов: " + wordsFrequency.Count);
