@@ -23,17 +23,17 @@ namespace Parallel3
         private static Thread[] readers = new Thread[readersCount];
         private static Thread[] handlers = new Thread[handlersCount];
         private static int filesStep = filesCount / readersCount;
-       
-        
-        
+        private static int lastIndex = filesCount % readersCount;
+
 
         static void ReadFiles(object threadIndex)
         {
             int index = (int) threadIndex;
             int startIndex = index * filesStep;
-            int finishIndex = (index + 1) * filesStep; //+ (index == threadsCount - 1 ? lastIndex : 0);
+            int finishIndex = (index + 1) * filesStep + (index == readersCount - 1 ? lastIndex : 0);
 
-            for (int i = startIndex; i < finishIndex && i < filesCount; i++)
+            StringBuilder stringBuilder = new StringBuilder();
+            for (int i = startIndex; i < finishIndex; i++)
             {
                 // добавляем необработанную порцию текста в буффер
                 globalBuffer.Add(File.ReadAllText(files[i]));
@@ -56,7 +56,6 @@ namespace Parallel3
                     }
                 }
             }
-           
         }
 
         static void Main(string[] args)
@@ -94,18 +93,19 @@ namespace Parallel3
             {
                 readers[i].Start(i);
             }
+
             // ожидаем завершения чтения их файлов
             for (int i = 0; i < readersCount; i++)
             {
                 readers[i].Join();
             }
 
-          
+
             for (int i = 0; i < handlersCount; i++)
             {
                 handlers[i].Start();
             }
-            
+
             for (int i = 0; i < handlersCount; i++)
             {
                 handlers[i].Join();
@@ -116,7 +116,7 @@ namespace Parallel3
             TimeSpan timeSpan = stopwatch.Elapsed;
 
             Console.WriteLine("Всего слов: " + wordsFrequency.Count);
-             
+
             Console.WriteLine("Самое частое слово: " +
                               wordsFrequency.First(x => x.Value == wordsFrequency.Values.Max()).Key + " " +
                               wordsFrequency.Values.Max());
