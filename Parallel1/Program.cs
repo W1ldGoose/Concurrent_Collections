@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 
 
 namespace Parallel1
@@ -14,32 +15,32 @@ namespace Parallel1
     {
         private static string dirPath = Environment.GetFolderPath(Environment.SpecialFolder.Personal) + @"\Texts";
         private static int filesCount = 40;
+       
         private static Dictionary<string, int> wordsFrequency = new Dictionary<string, int>();
         private static string[] files = Directory.GetFiles(dirPath);
         private static char[] separators;
 
-        //private static ConcurrentDictionary<string, int> wordsFrequency = new ConcurrentDictionary<string, int>();
         private static int threadsCount = 4;
         private static Thread[] threads = new Thread[threadsCount];
         private static int filesStep = filesCount / threadsCount;
-     //   private static int lastIndex = files.Length % threadsCount;
+        private static int lastIndex = filesCount % threadsCount;
 
         private static ConcurrentDictionary<string, int>[] localWords =
             new ConcurrentDictionary<string, int>[threadsCount];
-      //  private static ConcurrentBag<string> 
+
 
         static void ReadFiles(object threadIndex)
         {
             int index = (int) threadIndex;
             int startIndex = index * filesStep;
-            int finishIndex = (index + 1) * filesStep; //+ (index == threadsCount - 1 ? lastIndex : 0);
+            int finishIndex = (index + 1) * filesStep + (index == threadsCount - 1 ? lastIndex : 0);
 
             StringBuilder textBuilder = new StringBuilder();
 
-            for (int i = startIndex; i < finishIndex && i<filesCount; i++)
+            for (int i = startIndex; i < finishIndex; i++)
             {
                 // закинули все тексты из всех файлов в sb
-                textBuilder.Append(File.ReadAllText(files[i]));
+                textBuilder.AppendLine(File.ReadAllText(files[i]));
             }
 
             // разделяем на слова
@@ -74,7 +75,7 @@ namespace Parallel1
                     }
                     else
                     {
-                        wordsFrequency.Add(lowerWord,values[j]);
+                        wordsFrequency.Add(lowerWord, values[j]);
                     }
                 }
             }
@@ -92,6 +93,7 @@ namespace Parallel1
                 if (!char.IsLetter(ch))
                     tmp.Add(ch);
             }
+
             tmp.Add('\t');
             tmp.Add('\n');
             tmp.Add('\r');
@@ -100,6 +102,7 @@ namespace Parallel1
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
 
+            
             for (int i = 0; i < threadsCount; i++)
             {
                 threads[i] = new Thread(ReadFiles);
@@ -109,14 +112,17 @@ namespace Parallel1
             {
                 threads[i].Start(i);
             }
+
             // ожидаем завершения чтения их файлов
             for (int i = 0; i < threadsCount; i++)
             {
                 threads[i].Join();
             }
-            
+
             CountOverallWords();
             
+           
+
 
             stopwatch.Stop();
             TimeSpan timeSpan = stopwatch.Elapsed;

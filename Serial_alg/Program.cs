@@ -22,7 +22,7 @@ namespace Serial_alg
             for (int i = 0; i < filesCount; i++)
             {
                 // закинули все тексты из всех файлов в sb
-                textBuilder.Append(File.ReadAllText(files[i]));
+                textBuilder.AppendLine(File.ReadAllText(files[i]));
             }
 
             string[] allWords = textBuilder.ToString().Split(separators, StringSplitOptions.RemoveEmptyEntries);
