@@ -16,7 +16,7 @@ namespace Parallel1
         private static string dirPath = Environment.GetFolderPath(Environment.SpecialFolder.Personal) + @"\Chesterton_Books\Chesterton";
         private static int filesCount = 13;
        
-        private static Dictionary<string, int> wordsFrequency = new Dictionary<string, int>();
+        private static Dictionary<char, int> charsFrequency = new();
         private static string[] files = Directory.GetFiles(dirPath);
         private static char[] separators;
 
@@ -25,8 +25,8 @@ namespace Parallel1
         private static int filesStep = filesCount / threadsCount;
         private static int lastIndex = filesCount % threadsCount;
 
-        private static ConcurrentDictionary<string, int>[] localWords =
-            new ConcurrentDictionary<string, int>[threadsCount];
+        private static ConcurrentDictionary<char, int>[] localWords =
+            new ConcurrentDictionary<char, int>[threadsCount];
 
 
         static void ReadFiles(object threadIndex)
@@ -43,18 +43,17 @@ namespace Parallel1
                 textBuilder.Append(File.ReadAllText(files[i]));
             }
 
-            // разделяем на слова
-            string[] allLocalWords = textBuilder.ToString().Split(separators, StringSplitOptions.RemoveEmptyEntries);
-            CountLocalWords(allLocalWords, index);
+            string localChars = textBuilder.ToString();
+            CountLocalWords(localChars, index);
         }
 
         // вычисляем локальные результаты по группе файлов и записываем в локальный словарь
-        static void CountLocalWords(string[] allLocalWords, int localDictIndex)
+        static void CountLocalWords(string localChars, int localDictIndex)
         {
-            localWords[localDictIndex] = new ConcurrentDictionary<string, int>();
-            for (int i = 0; i < allLocalWords.Length; i++)
+            localWords[localDictIndex] = new ConcurrentDictionary<char, int>();
+            for (int i = 0; i < localChars.Length; i++)
             {
-                localWords[localDictIndex].AddOrUpdate(allLocalWords[i].ToLower(), 1, (key, oldValue) => ++oldValue);
+                localWords[localDictIndex].AddOrUpdate(char.ToLower(localChars[i]), 1, (key, oldValue) => ++oldValue);
             }
         }
 
@@ -64,18 +63,21 @@ namespace Parallel1
             int temp;
             for (int i = 0; i < localWords.Length; i++)
             {
-                string[] keys = localWords[i].Keys.ToArray();
+                char[] keys = localWords[i].Keys.ToArray();
                 int[] values = localWords[i].Values.ToArray();
                 for (int j = 0; j < keys.Length; j++)
                 {
-                    string lowerWord = keys[j].ToLower();
-                    if (wordsFrequency.ContainsKey(lowerWord))
+                    char lowerChar = char.ToLower(keys[j]);
+                    if (!separators.Contains(lowerChar))
                     {
-                        wordsFrequency[lowerWord] += values[j];
-                    }
-                    else
-                    {
-                        wordsFrequency.Add(lowerWord, values[j]);
+                        if (charsFrequency.ContainsKey(lowerChar))
+                        {
+                            charsFrequency[lowerChar] += values[j];
+                        }
+                        else
+                        {
+                            charsFrequency.Add(lowerChar, values[j]);
+                        }
                     }
                 }
             }
@@ -89,8 +91,9 @@ namespace Parallel1
                 ctr++)
             {
                 char ch = (Char) ctr;
-
-                if (!char.IsLetter(ch))
+                if (char.IsSeparator(ch))
+                    tmp.Add(ch);
+                if (char.IsWhiteSpace(ch))
                     tmp.Add(ch);
             }
 
@@ -126,18 +129,18 @@ namespace Parallel1
 
             stopwatch.Stop();
             TimeSpan timeSpan = stopwatch.Elapsed;
-
-            Console.WriteLine("Всего слов: " + wordsFrequency.Count);
-            // Console.WriteLine("Самое частое слово: " + wordsFrequency.First(x => x.Value == wordsFrequency.Values.Max()).Key, wordsFrequency.Values.Max());
-            Console.WriteLine("Самое частое слово: " +
-                              wordsFrequency.First(x => x.Value == wordsFrequency.Values.Max()).Key + " " +
-                              wordsFrequency.Values.Max());
+            Console.WriteLine("Времени затрачено: " + timeSpan.TotalMilliseconds);
+            Console.WriteLine("Кол-во уникальных символов: " + charsFrequency.Count);
+            Console.WriteLine("Самый частый символ: " +
+                              charsFrequency.First(x => x.Value == charsFrequency.Values.Max()).Key + " " +
+                              charsFrequency.Values.Max());
+           
             /*foreach (var pair in wordsFrequency.OrderBy(pair => pair.Key))
             {
                 Console.WriteLine("{0} : {1}", pair.Key, pair.Value);
             }*/
 
-            Console.WriteLine("Time: " + timeSpan.TotalMilliseconds);
+
         }
     }
 }

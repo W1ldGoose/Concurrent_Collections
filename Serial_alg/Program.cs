@@ -14,7 +14,7 @@ namespace Serial_alg
                                         @"\Chesterton_Books\Chesterton";
 
         private static int filesCount = 13;
-        private static Dictionary<string, int> wordsFrequency = new();
+        private static Dictionary<char, int> charsFrequency = new();
         private static string[] files = Directory.GetFiles(dirPath);
 
         private static char[] separators;
@@ -27,19 +27,21 @@ namespace Serial_alg
                 // закинули все тексты из всех файлов в sb
                 textBuilder.Append(File.ReadAllText(files[i]));
             }
-
-            string[] allWords = textBuilder.ToString().Split(separators, StringSplitOptions.RemoveEmptyEntries);
-
-            for (int i = 0; i < allWords.Length; i++)
+            
+            string allTexts = textBuilder.ToString();
+            for (int i = 0; i < allTexts.Length; i++)
             {
-                string lowerWord = allWords[i].ToLower();
-                if (wordsFrequency.ContainsKey(lowerWord))
+                char lowerChar = char.ToLower(allTexts[i]);
+                if (!separators.Contains(lowerChar))
                 {
-                    wordsFrequency[lowerWord]++;
-                }
-                else
-                {
-                    wordsFrequency.Add(lowerWord, 1);
+                    if (charsFrequency.ContainsKey(lowerChar))
+                    {
+                        charsFrequency[lowerChar]++;
+                    }
+                    else
+                    {
+                        charsFrequency.Add(lowerChar, 1);
+                    }
                 }
             }
         }
@@ -52,8 +54,9 @@ namespace Serial_alg
                 ctr++)
             {
                 char ch = (Char) ctr;
-
-                if (!char.IsLetter(ch))
+                if (char.IsSeparator(ch))
+                    tmp.Add(ch);
+                if (char.IsWhiteSpace(ch))
                     tmp.Add(ch);
             }
 
@@ -69,15 +72,17 @@ namespace Serial_alg
             stopwatch.Stop();
 
             TimeSpan timeSpan = stopwatch.Elapsed;
-            Console.WriteLine("Всего слов: " + wordsFrequency.Count);
-            Console.WriteLine("Самое частое слово: " + wordsFrequency.First(x => x.Value == wordsFrequency.Values.Max())
-                .Key + " " + wordsFrequency.Values.Max());
+            Console.WriteLine("Времени затрачено: " + timeSpan.TotalMilliseconds);
+            
+            Console.WriteLine("Кол-во уникальных символов: " + charsFrequency.Count);
+            Console.WriteLine("Самый частый символ: " +
+                              charsFrequency.First(x => x.Value == charsFrequency.Values.Max()).Key + " " +
+                              charsFrequency.Values.Max());
             /*foreach (var pair in wordsFrequency.OrderBy(pair => pair.Key))
             {
                 Console.WriteLine("{0} : {1}", pair.Key, pair.Value);
             }*/
-
-            Console.WriteLine("Time: " + timeSpan.TotalMilliseconds);
+            
         }
     }
 }
