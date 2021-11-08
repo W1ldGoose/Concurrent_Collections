@@ -18,9 +18,8 @@ namespace Parallel2
         private static int filesCount = 13;
 
         private static string[] files = Directory.GetFiles(dirPath);
-        private static char[] separators;
 
-        private static Dictionary<char, int> charsFrequency = new();
+        private static ConcurrentDictionary<char, int> sentencesFrequency = new();
         private static int threadsCount = 4;
         private static Thread[] threads = new Thread[threadsCount];
         private static int filesStep = filesCount / threadsCount;
@@ -45,18 +44,14 @@ namespace Parallel2
 
             for (int i = 0; i < allTexts.Length; i++)
             {
-                char lowerChar = char.ToLower(allTexts[i]);
-                if (!separators.Contains(lowerChar))
+                if (sentencesFrequency.ContainsKey(allTexts[i]))
                 {
+                    // так как метод ContainsKey не синхронизирован, нужно использовать дополнительную блокировку
                     lock ("handle")
                     {
-                        if (charsFrequency.ContainsKey(lowerChar))
+                        if (sentencesFrequency.TryGetValue(allTexts[i], out var oldValue))
                         {
-                            charsFrequency[lowerChar]++;
-                        }
-                        else
-                        {
-                            charsFrequency.Add(lowerChar, 1);
+                            sentencesFrequency.TryUpdate(allTexts[i], oldValue + 1, oldValue);
                         }
                     }
                 }
@@ -65,22 +60,9 @@ namespace Parallel2
 
         static void Main(string[] args)
         {
-            List<char> tmp = new List<char>();
-            for (int ctr = (int) (Char.MinValue);
-                ctr <= (int) (Char.MaxValue);
-                ctr++)
-            {
-                char ch = (Char) ctr;
-                if (char.IsSeparator(ch))
-                    tmp.Add(ch);
-                if (char.IsWhiteSpace(ch))
-                    tmp.Add(ch);
-            }
-
-            tmp.Add('\t');
-            tmp.Add('\n');
-            tmp.Add('\r');
-            separators = tmp.ToArray();
+            sentencesFrequency.TryAdd('!', 0);
+            sentencesFrequency.TryAdd('?', 0);
+            sentencesFrequency.TryAdd('.', 0);
 
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
@@ -104,16 +86,12 @@ namespace Parallel2
 
             stopwatch.Stop();
             TimeSpan timeSpan = stopwatch.Elapsed;
-            Console.WriteLine("Времени затрачено: " + timeSpan.TotalMilliseconds);
 
-            Console.WriteLine("Кол-во уникальных символов: " + charsFrequency.Count);
-            Console.WriteLine("Самый частый символ: " +
-                              charsFrequency.First(x => x.Value == charsFrequency.Values.Max()).Key + " " +
-                              charsFrequency.Values.Max());
-            /*foreach (var pair in charsFrequency.OrderBy(pair => pair.Key))
-            {
-                Console.WriteLine("{0} : {1}", pair.Key, pair.Value);
-            }*/
+            Console.WriteLine("Времени затрачено: " + timeSpan.TotalMilliseconds);
+            
+            Console.WriteLine("Вопросительные предложения: " + sentencesFrequency['?']);
+            Console.WriteLine("Восклицательные предложения: " + sentencesFrequency['!']);
+            Console.WriteLine("Утвердительные предложения: " + sentencesFrequency['.']);
         }
     }
 }

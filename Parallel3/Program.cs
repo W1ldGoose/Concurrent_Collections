@@ -18,17 +18,17 @@ namespace Parallel3
         private static int filesCount = 13;
 
         private static string[] files = Directory.GetFiles(dirPath);
-        private static char[] separators;
 
-        private static ConcurrentDictionary<char, int> charsFrequency = new();
 
-        private static ConcurrentQueue<string> globalBuffer = new();
-        
+        private static ConcurrentDictionary<char, int> sentencesFrequency = new();
+
+        private static ConcurrentStack<string> globalBuffer = new();
+
         private static int readersCount = 2;
         private static int handlersCount = 4;
         private static Thread[] readers = new Thread[readersCount];
         private static Thread[] handlers = new Thread[handlersCount];
-        
+
         private static int filesStep = filesCount / readersCount;
         private static int lastIndex = filesCount % readersCount;
 
@@ -41,23 +41,28 @@ namespace Parallel3
             for (int i = startIndex; i < finishIndex; i++)
             {
                 // добавляем необработанную порцию текста в буффер
-                globalBuffer.Enqueue(File.ReadAllText(files[i]));
+                globalBuffer.Push(File.ReadAllText(files[i]));
             }
         }
 
         static void HandleTexts()
-        { 
+        {
             //пока в буффере есть элементы
             while (!globalBuffer.IsEmpty)
             {
-                if (globalBuffer.TryDequeue(out var text))
+                if (globalBuffer.TryPop(out var text))
                 {
                     for (int i = 0; i < text.Length; i++)
                     {
-                        char lowerChar = char.ToLower(text[i]);
-                        if (!separators.Contains(lowerChar))
+                        if (sentencesFrequency.ContainsKey(text[i]))
                         {
-                            charsFrequency.AddOrUpdate(lowerChar, 1, (key, oldValue) => ++oldValue);
+                            lock ("handle")
+                            {
+                                if (sentencesFrequency.TryGetValue(text[i], out var oldValue))
+                                {
+                                    sentencesFrequency.TryUpdate(text[i], oldValue + 1, oldValue);
+                                } 
+                            }
                         }
                     }
                 }
@@ -66,23 +71,9 @@ namespace Parallel3
 
         static void Main(string[] args)
         {
-            List<char> tmp = new List<char>();
-            for (int ctr = (int) (Char.MinValue);
-                ctr <= (int) (Char.MaxValue);
-                ctr++)
-            {
-                char ch = (Char) ctr;
-                if (char.IsSeparator(ch))
-                    tmp.Add(ch);
-                if (char.IsWhiteSpace(ch))
-                    tmp.Add(ch);
-            }
-
-            tmp.Add('\t');
-            tmp.Add('\n');
-            tmp.Add('\r');
-            separators = tmp.ToArray();
-
+            sentencesFrequency.TryAdd('!', 0);
+            sentencesFrequency.TryAdd('?', 0);
+            sentencesFrequency.TryAdd('.', 0);
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
 
@@ -124,16 +115,9 @@ namespace Parallel3
 
             Console.WriteLine("Времени затрачено: " + timeSpan.TotalMilliseconds);
 
-            Console.WriteLine("Кол-во уникальных символов: " + charsFrequency.Count);
-            Console.WriteLine("Самый частый символ: " +
-                              charsFrequency.First(x => x.Value == charsFrequency.Values.Max()).Key + " " +
-                              charsFrequency.Values.Max());
-            /*foreach (var pair in wordsFrequency.OrderBy(pair => pair.Key))
-            {
-                Console.WriteLine("{0} : {1}", pair.Key, pair.Value);
-            }*/
-
-         
+            Console.WriteLine("Вопросительные предложения: " + sentencesFrequency['?']);
+            Console.WriteLine("Восклицательные предложения: " + sentencesFrequency['!']);
+            Console.WriteLine("Утвердительные предложения: " + sentencesFrequency['.']);
         }
     }
 }

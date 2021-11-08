@@ -13,19 +13,27 @@ namespace Parallel1
 {
     class Program
     {
-        private static string dirPath = Environment.GetFolderPath(Environment.SpecialFolder.Personal) + @"\Chesterton_Books\Chesterton";
+        private static string dirPath = Environment.GetFolderPath(Environment.SpecialFolder.Personal) +
+                                        @"\Chesterton_Books\Chesterton";
+
         private static int filesCount = 13;
-       
-        private static Dictionary<char, int> charsFrequency = new();
+
+        private static Dictionary<char, int> sentencesFrequency = new Dictionary<char, int>
+        {
+            {'!', 0},
+            {'?', 0},
+            {'.', 0}
+        };
+
         private static string[] files = Directory.GetFiles(dirPath);
-        private static char[] separators;
+
 
         private static int threadsCount = 4;
         private static Thread[] threads = new Thread[threadsCount];
         private static int filesStep = filesCount / threadsCount;
         private static int lastIndex = filesCount % threadsCount;
 
-        private static ConcurrentDictionary<char, int>[] localWords =
+        private static ConcurrentDictionary<char, int>[] localSentences =
             new ConcurrentDictionary<char, int>[threadsCount];
 
 
@@ -43,41 +51,54 @@ namespace Parallel1
                 textBuilder.Append(File.ReadAllText(files[i]));
             }
 
-            string localChars = textBuilder.ToString();
-            CountLocalWords(localChars, index);
+            string localTexts = textBuilder.ToString();
+            CountLocalSentencesFrequencies(localTexts, index);
         }
 
         // вычисляем локальные результаты по группе файлов и записываем в локальный словарь
-        static void CountLocalWords(string localChars, int localDictIndex)
+        static void CountLocalSentencesFrequencies(string localTexts, int localDictIndex)
         {
-            localWords[localDictIndex] = new ConcurrentDictionary<char, int>();
-            for (int i = 0; i < localChars.Length; i++)
+            localSentences[localDictIndex] = new ConcurrentDictionary<char, int>();
+            localSentences[localDictIndex].TryAdd('!', 0);
+            localSentences[localDictIndex].TryAdd('?', 0);
+            localSentences[localDictIndex].TryAdd('.', 0);
+            
+            for (int i = 0; i < localTexts.Length; i++)
             {
-                localWords[localDictIndex].AddOrUpdate(char.ToLower(localChars[i]), 1, (key, oldValue) => ++oldValue);
+                // так как метод ContainsKey не синхронизирован, нужно использовать дополнительную блокировку
+                if (localSentences[localDictIndex].ContainsKey(localTexts[i]))
+                {
+                    lock ("handle")
+                    {
+                        if (localSentences[localDictIndex].TryGetValue(localTexts[i], out var oldValue))
+                        {
+                            int tmp = oldValue+1;
+                            localSentences[localDictIndex].TryUpdate(localTexts[i], tmp, oldValue);
+                        }
+                    }
+                   
+                }
             }
-        }
+        } 
 
         // вычисление глобальной статистики
         static void CountOverallWords()
         {
-            int temp;
-            for (int i = 0; i < localWords.Length; i++)
+            // проходимся по всем локальным буферам
+            for (int i = 0; i < localSentences.Length; i++)
             {
-                char[] keys = localWords[i].Keys.ToArray();
-                int[] values = localWords[i].Values.ToArray();
+                char[] keys = localSentences[i].Keys.ToArray();
+                int[] values = localSentences[i].Values.ToArray();
+                
                 for (int j = 0; j < keys.Length; j++)
                 {
-                    char lowerChar = char.ToLower(keys[j]);
-                    if (!separators.Contains(lowerChar))
+                    if (sentencesFrequency.ContainsKey(keys[j]))
                     {
-                        if (charsFrequency.ContainsKey(lowerChar))
-                        {
-                            charsFrequency[lowerChar] += values[j];
-                        }
-                        else
-                        {
-                            charsFrequency.Add(lowerChar, values[j]);
-                        }
+                        sentencesFrequency[keys[j]] += values[j];
+                    }
+                    else
+                    {
+                        sentencesFrequency.Add(keys[j], values[j]);
                     }
                 }
             }
@@ -85,27 +106,10 @@ namespace Parallel1
 
         static void Main(string[] args)
         {
-            List<char> tmp = new List<char>();
-            for (int ctr = (int) (Char.MinValue);
-                ctr <= (int) (Char.MaxValue);
-                ctr++)
-            {
-                char ch = (Char) ctr;
-                if (char.IsSeparator(ch))
-                    tmp.Add(ch);
-                if (char.IsWhiteSpace(ch))
-                    tmp.Add(ch);
-            }
-
-            tmp.Add('\t');
-            tmp.Add('\n');
-            tmp.Add('\r');
-            separators = tmp.ToArray();
-
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
 
-            
+
             for (int i = 0; i < threadsCount; i++)
             {
                 threads[i] = new Thread(ReadFiles);
@@ -123,24 +127,16 @@ namespace Parallel1
             }
 
             CountOverallWords();
-            
-           
 
 
             stopwatch.Stop();
             TimeSpan timeSpan = stopwatch.Elapsed;
             Console.WriteLine("Времени затрачено: " + timeSpan.TotalMilliseconds);
-            Console.WriteLine("Кол-во уникальных символов: " + charsFrequency.Count);
-            Console.WriteLine("Самый частый символ: " +
-                              charsFrequency.First(x => x.Value == charsFrequency.Values.Max()).Key + " " +
-                              charsFrequency.Values.Max());
-           
-            /*foreach (var pair in wordsFrequency.OrderBy(pair => pair.Key))
-            {
-                Console.WriteLine("{0} : {1}", pair.Key, pair.Value);
-            }*/
 
 
+            Console.WriteLine("Вопросительные предложения: " + sentencesFrequency['?']);
+            Console.WriteLine("Восклицательные предложения: " + sentencesFrequency['!']);
+            Console.WriteLine("Утвердительные предложения: " + sentencesFrequency['.']);
         }
     }
 }

@@ -14,10 +14,17 @@ namespace Serial_alg
                                         @"\Chesterton_Books\Chesterton";
 
         private static int filesCount = 13;
-        private static Dictionary<char, int> charsFrequency = new();
+
+        private static Dictionary<char, int> sentencesFrequency = new Dictionary<char, int>
+        {
+            {'!', 0},
+            {'?', 0},
+            {'.', 0}
+        };
+
         private static string[] files = Directory.GetFiles(dirPath);
 
-        private static char[] separators;
+       
 
         static void ReadFiles()
         {
@@ -27,62 +34,34 @@ namespace Serial_alg
                 // закинули все тексты из всех файлов в sb
                 textBuilder.Append(File.ReadAllText(files[i]));
             }
-            
+
             string allTexts = textBuilder.ToString();
             for (int i = 0; i < allTexts.Length; i++)
             {
                 char lowerChar = char.ToLower(allTexts[i]);
-                if (!separators.Contains(lowerChar))
+                
+                if (sentencesFrequency.ContainsKey(lowerChar))
                 {
-                    if (charsFrequency.ContainsKey(lowerChar))
-                    {
-                        charsFrequency[lowerChar]++;
-                    }
-                    else
-                    {
-                        charsFrequency.Add(lowerChar, 1);
-                    }
+                    sentencesFrequency[lowerChar]++;
                 }
             }
         }
 
         static void Main(string[] args)
         {
-            List<char> tmp = new List<char>();
-            for (int ctr = (int) (Char.MinValue);
-                ctr <= (int) (Char.MaxValue);
-                ctr++)
-            {
-                char ch = (Char) ctr;
-                if (char.IsSeparator(ch))
-                    tmp.Add(ch);
-                if (char.IsWhiteSpace(ch))
-                    tmp.Add(ch);
-            }
-
-            tmp.Add('\t');
-            tmp.Add('\n');
-            tmp.Add('\r');
-            separators = tmp.ToArray();
-           
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
 
-             ReadFiles();
+            ReadFiles();
             stopwatch.Stop();
 
             TimeSpan timeSpan = stopwatch.Elapsed;
             Console.WriteLine("Времени затрачено: " + timeSpan.TotalMilliseconds);
             
-            Console.WriteLine("Кол-во уникальных символов: " + charsFrequency.Count);
-            Console.WriteLine("Самый частый символ: " +
-                              charsFrequency.First(x => x.Value == charsFrequency.Values.Max()).Key + " " +
-                              charsFrequency.Values.Max());
-            /*foreach (var pair in wordsFrequency.OrderBy(pair => pair.Key))
-            {
-                Console.WriteLine("{0} : {1}", pair.Key, pair.Value);
-            }*/
-            
+            Console.WriteLine("Вопросительные предложения: "+ sentencesFrequency['?']);
+            Console.WriteLine("Восклицательные предложения: "+ sentencesFrequency['!']);
+            Console.WriteLine("Утвердительные предложения: "+ sentencesFrequency['.']);
+
         }
     }
 }
