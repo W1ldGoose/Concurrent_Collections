@@ -12,8 +12,9 @@ namespace Parallel2
 {
     class Program
     {
-        private static string dirPath = Environment.GetFolderPath(Environment.SpecialFolder.Personal) + @"\Texts";
-        private static int filesCount = 40;
+        private static string dirPath = Environment.GetFolderPath(Environment.SpecialFolder.Personal) + @"\Chesterton_Books\Chesterton";
+
+        private static int filesCount = 13;
         
         private static string[] files = Directory.GetFiles(dirPath);
         private static char[] separators;

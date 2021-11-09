@@ -11,20 +11,25 @@ namespace Parallel3
 {
     class Program
     {
-        private static string dirPath = Environment.GetFolderPath(Environment.SpecialFolder.Personal) + @"\Texts";
+        private static string dirPath = Environment.GetFolderPath(Environment.SpecialFolder.Personal) +
+                                        @"\Chesterton_Books\Chesterton";
 
         private static string[] files = Directory.GetFiles(dirPath);
         private static char[] separators;
-        private static int filesCount = 40;
+        private static int filesCount = 13;
         private static ConcurrentDictionary<string, int> wordsFrequency = new ConcurrentDictionary<string, int>();
         private static ConcurrentBag<string> globalBuffer = new ConcurrentBag<string>();
         private static int readersCount = 2;
         private static int handlersCount = 4;
+
         private static Thread[] readers = new Thread[readersCount];
         private static Thread[] handlers = new Thread[handlersCount];
+
         private static int filesStep = filesCount / readersCount;
         private static int lastIndex = filesCount % readersCount;
 
+        private static bool isFinishRead = false;
+        private static bool isEmpty = true;
 
         static void ReadFiles(object threadIndex)
         {
@@ -32,10 +37,10 @@ namespace Parallel3
             int startIndex = index * filesStep;
             int finishIndex = (index + 1) * filesStep + (index == readersCount - 1 ? lastIndex : 0);
 
-            StringBuilder stringBuilder = new StringBuilder();
+            StringBuilder textBuilder = new StringBuilder();
+
             for (int i = startIndex; i < finishIndex; i++)
             {
-                // добавляем необработанную порцию текста в буффер
                 globalBuffer.Add(File.ReadAllText(files[i]));
             }
         }
@@ -43,11 +48,11 @@ namespace Parallel3
         static void HandleTexts()
         {
             string[] localWords;
-            string text;
-            // пока в буффере есть элементы
-            while (!globalBuffer.IsEmpty)
+
+            // пока чтение не закончено
+            while (!isFinishRead || !globalBuffer.IsEmpty)
             {
-                if (globalBuffer.TryTake(out text))
+                if (globalBuffer.TryTake(out var text))
                 {
                     localWords = text.Split(separators, StringSplitOptions.RemoveEmptyEntries);
                     for (int i = 0; i < localWords.Length; i++)
@@ -94,17 +99,18 @@ namespace Parallel3
                 readers[i].Start(i);
             }
 
+            for (int i = 0; i < handlersCount; i++)
+            {
+                handlers[i].Start();
+            }
+
             // ожидаем завершения чтения их файлов
             for (int i = 0; i < readersCount; i++)
             {
                 readers[i].Join();
             }
 
-
-            for (int i = 0; i < handlersCount; i++)
-            {
-                handlers[i].Start();
-            }
+            isFinishRead = true;
 
             for (int i = 0; i < handlersCount; i++)
             {
