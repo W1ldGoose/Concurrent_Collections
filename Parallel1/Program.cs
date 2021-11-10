@@ -13,22 +13,33 @@ namespace Parallel1
 {
     class Program
     {
-        private static string dirPath = Environment.GetFolderPath(Environment.SpecialFolder.Personal) + @"\Chesterton_Books\Chesterton";
+        // путь до папки с текстами
+        private static string dirPath = Environment.GetFolderPath(Environment.SpecialFolder.Personal) +
+                                        @"\Chesterton_Books\Chesterton";
+
         private static int filesCount = 13;
-       
+
+        // словарь, для глобальной статистики 
         private static Dictionary<char, int> charsFrequency = new();
         private static string[] files = Directory.GetFiles(dirPath);
+
+        // массив символов, которые не нужно учитывать при подсчете
         private static char[] separators;
 
         private static int threadsCount = 4;
+
         private static Thread[] threads = new Thread[threadsCount];
+
+        // шаг для декомпозиции по данным
         private static int filesStep = filesCount / threadsCount;
+        // для последнего потока, если кол-во файлов не кратно кол-ву потоков
         private static int lastIndex = filesCount % threadsCount;
 
-        private static ConcurrentDictionary<char, int>[] localWords =
-            new ConcurrentDictionary<char, int>[threadsCount];
+        // локальные словари
+        private static Dictionary<char, int>[] localChars =
+            new Dictionary<char, int>[threadsCount];
 
-
+        // чтение из файлов
         static void ReadFiles(object threadIndex)
         {
             int index = (int) threadIndex;
@@ -43,31 +54,45 @@ namespace Parallel1
                 textBuilder.Append(File.ReadAllText(files[i]));
             }
 
-            string localChars = textBuilder.ToString();
-            CountLocalWords(localChars, index);
+            string localTexts = textBuilder.ToString();
+            CountLocalChars(localTexts, index);
         }
 
         // вычисляем локальные результаты по группе файлов и записываем в локальный словарь
-        static void CountLocalWords(string localChars, int localDictIndex)
+        // соответствующего потока обработчика 
+        static void CountLocalChars(string localTexts, int localDictIndex)
         {
-            localWords[localDictIndex] = new ConcurrentDictionary<char, int>();
-            for (int i = 0; i < localChars.Length; i++)
+            Program.localChars[localDictIndex] = new Dictionary<char, int>();
+            for (int i = 0; i < localTexts.Length; i++)
             {
-                localWords[localDictIndex].AddOrUpdate(char.ToLower(localChars[i]), 1, (key, oldValue) => ++oldValue);
+                char lowerChar = char.ToLower(localTexts[i]);
+                // не учитываем при подсчете специальные символы, например, пробел
+                if (!separators.Contains(lowerChar))
+                {
+                    if (localChars[localDictIndex].ContainsKey(lowerChar))
+                    {
+                        localChars[localDictIndex][lowerChar]++;
+                    }
+                    else
+                    {
+                        localChars[localDictIndex].Add(lowerChar, 1);
+                    }
+                }
             }
         }
 
-        // вычисление глобальной статистики
-        static void CountOverallWords()
+        // вычисление глобальной статистики после работы потоков 
+        static void CountAllChars()
         {
-            int temp;
-            for (int i = 0; i < localWords.Length; i++)
+            // цикл по локальным словарям
+            for (int i = 0; i < localChars.Length; i++)
             {
-                char[] keys = localWords[i].Keys.ToArray();
-                int[] values = localWords[i].Values.ToArray();
+                char[] keys = localChars[i].Keys.ToArray();
+                int[] values = localChars[i].Values.ToArray();
                 for (int j = 0; j < keys.Length; j++)
                 {
                     char lowerChar = char.ToLower(keys[j]);
+                    // не учитываем при подсчете специальные символы, например, пробел
                     if (!separators.Contains(lowerChar))
                     {
                         if (charsFrequency.ContainsKey(lowerChar))
@@ -76,6 +101,8 @@ namespace Parallel1
                         }
                         else
                         {
+                            // если такого символа в глобальном словаре нет,добавляем его
+                            // а значение устанавливаем из локального словаря
                             charsFrequency.Add(lowerChar, values[j]);
                         }
                     }
@@ -86,6 +113,8 @@ namespace Parallel1
         static void Main(string[] args)
         {
             List<char> tmp = new List<char>();
+
+            // добавляем в массив separators символы, которые не нужно учитывать
             for (int ctr = (int) (Char.MinValue);
                 ctr <= (int) (Char.MaxValue);
                 ctr++)
@@ -102,18 +131,20 @@ namespace Parallel1
             tmp.Add('\r');
             separators = tmp.ToArray();
 
+            // запускаем таймер
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
 
-            
+            // инициализируем читателей
             for (int i = 0; i < threadsCount; i++)
             {
                 threads[i] = new Thread(ReadFiles);
             }
 
+            // запускаем читателей
             for (int i = 0; i < threadsCount; i++)
             {
-                threads[i].Start(i);
+                threads[i].Start((object) i);
             }
 
             // ожидаем завершения чтения их файлов
@@ -122,25 +153,17 @@ namespace Parallel1
                 threads[i].Join();
             }
 
-            CountOverallWords();
-            
-           
+            CountAllChars();
 
-
+            // останавливаем таймер
             stopwatch.Stop();
             TimeSpan timeSpan = stopwatch.Elapsed;
+
             Console.WriteLine("Времени затрачено: " + timeSpan.TotalMilliseconds);
             Console.WriteLine("Кол-во уникальных символов: " + charsFrequency.Count);
             Console.WriteLine("Самый частый символ: " +
                               charsFrequency.First(x => x.Value == charsFrequency.Values.Max()).Key + " " +
                               charsFrequency.Values.Max());
-           
-            /*foreach (var pair in wordsFrequency.OrderBy(pair => pair.Key))
-            {
-                Console.WriteLine("{0} : {1}", pair.Key, pair.Value);
-            }*/
-
-
         }
     }
 }

@@ -10,15 +10,19 @@ namespace Serial_alg
 {
     class Program
     {
+        // путь до папки с текстами
         private static string dirPath = Environment.GetFolderPath(Environment.SpecialFolder.Personal) +
                                         @"\Chesterton_Books\Chesterton";
 
         private static int filesCount = 13;
+        
         private static Dictionary<char, int> charsFrequency = new();
         private static string[] files = Directory.GetFiles(dirPath);
 
+        // массив символов, которые не нужно учитывать при подсчете
         private static char[] separators;
-
+        
+        // чтение из файлов
         static void ReadFiles()
         {
             StringBuilder textBuilder = new StringBuilder();
@@ -29,9 +33,11 @@ namespace Serial_alg
             }
             
             string allTexts = textBuilder.ToString();
+            // проходимся по всем символам в текстах
             for (int i = 0; i < allTexts.Length; i++)
             {
                 char lowerChar = char.ToLower(allTexts[i]);
+                // не учитываем при подсчете специальные символы, например, пробел
                 if (!separators.Contains(lowerChar))
                 {
                     if (charsFrequency.ContainsKey(lowerChar))
@@ -49,6 +55,7 @@ namespace Serial_alg
         static void Main(string[] args)
         {
             List<char> tmp = new List<char>();
+            // добавляем в массив separators символы, которые не нужно учитывать
             for (int ctr = (int) (Char.MinValue);
                 ctr <= (int) (Char.MaxValue);
                 ctr++)
@@ -65,10 +72,12 @@ namespace Serial_alg
             tmp.Add('\r');
             separators = tmp.ToArray();
            
+            // запускаем таймер
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
 
-             ReadFiles();
+            ReadFiles();
+            // останавливаем таймер
             stopwatch.Stop();
 
             TimeSpan timeSpan = stopwatch.Elapsed;
