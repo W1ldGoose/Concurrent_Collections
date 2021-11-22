@@ -25,8 +25,8 @@ namespace Parallel1
         private static int filesStep = filesCount / threadsCount;
         private static int lastIndex = filesCount % threadsCount;
 
-        private static ConcurrentDictionary<string, int>[] localWords =
-            new ConcurrentDictionary<string, int>[threadsCount];
+        private static Dictionary<string, int>[] localWords =
+            new Dictionary<string, int>[threadsCount];
 
 
         static void ReadFiles(object threadIndex)
@@ -51,10 +51,18 @@ namespace Parallel1
         // вычисляем локальные результаты по группе файлов и записываем в локальный словарь
         static void CountLocalWords(string[] allLocalWords, int localDictIndex)
         {
-            localWords[localDictIndex] = new ConcurrentDictionary<string, int>();
+            localWords[localDictIndex] = new Dictionary<string, int>();
             for (int i = 0; i < allLocalWords.Length; i++)
             {
-                localWords[localDictIndex].AddOrUpdate(allLocalWords[i].ToLower(), 1, (key, oldValue) => ++oldValue);
+                string lowerWord = allLocalWords[i].ToLower();
+                if (localWords[localDictIndex].ContainsKey(lowerWord))
+                {
+                    localWords[localDictIndex][lowerWord]++;
+                }
+                else
+                {
+                    localWords[localDictIndex].Add(lowerWord, 1);
+                }
             }
         }
 
@@ -121,8 +129,6 @@ namespace Parallel1
 
             CountOverallWords();
             
-           
-
 
             stopwatch.Stop();
             TimeSpan timeSpan = stopwatch.Elapsed;
