@@ -27,7 +27,7 @@ namespace Parallel3
         private static Thread[] handlers = new Thread[handlersCount];
         private static int filesStep = filesCount / readersCount;
         private static int lastIndex = filesCount % readersCount;
-        
+
         static void ReadFiles(object threadIndex)
         {
             int index = (int) threadIndex;
@@ -43,7 +43,7 @@ namespace Parallel3
     
         static void HandleTexts()
         {
-            //пока в буффере есть элементы
+            // пока в буффере есть элементы
             while (!globalBuffer.IsCompleted)
             {
                 if (globalBuffer.TryTake(out var text))
@@ -93,7 +93,11 @@ namespace Parallel3
             {
                 readers[i].Start(i);
             }
-            
+            // запускаем обработчиков
+            for (int i = 0; i < handlersCount; i++)
+            {
+                handlers[i].Start();
+            }
             // ожидаем завершения чтения всех файлов
             for (int i = 0; i < readersCount; i++)
             {
@@ -101,12 +105,8 @@ namespace Parallel3
             }
             // помечаем буфер
             globalBuffer.CompleteAdding();
+
             
-            // запускаем обработчиков
-            for (int i = 0; i < handlersCount; i++)
-            {
-                handlers[i].Start();
-            }
             for (int i = 0; i < handlersCount; i++)
             {
                 handlers[i].Join();
